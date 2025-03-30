@@ -181,8 +181,9 @@ class Parser:
                 if len(parameters) >= 255:
                     self.error(self.peek(), "Can't have more than 255 parameters.")
                 
-                param_type = self.consume(TokenType.INT, TokenType.FLOAT, TokenType.STRING, TokenType.CHAR, 
-                                        "Expect parameter type.")
+                # Use the new consume_any method
+                type_tokens = [TokenType.INT, TokenType.FLOAT, TokenType.STRING, TokenType.CHAR]
+                param_type = self.consume_any(type_tokens, "Expect parameter type.")
                 param_name = self.consume(TokenType.IDENTIFIER, "Expect parameter name.").value
                 parameters.append(Parameter(param_type, param_name))
                 
@@ -191,10 +192,13 @@ class Parser:
         
         self.consume(TokenType.RIGHT_PAREN, "Expect ')' after parameters.")
         
-        # Optional return type (can be void)
+        # Optional return type - also use consume_any here
         return_type = None
-        if self.match(TokenType.INT, TokenType.FLOAT, TokenType.STRING, TokenType.CHAR):
-            return_type = self.previous()
+        if self.check(TokenType.INT) or self.check(TokenType.FLOAT) or \
+           self.check(TokenType.STRING) or self.check(TokenType.CHAR):
+            return_type = self.consume_any([TokenType.INT, TokenType.FLOAT, 
+                                          TokenType.STRING, TokenType.CHAR], 
+                                         "Expect return type.")
         
         self.consume(TokenType.LEFT_BRACE, "Expect '{' before function body.")
         body = BlockStatement(self.block())
@@ -412,6 +416,13 @@ class Parser:
     def consume(self, token_type, message):
         if self.check(token_type):
             return self.advance()
+        self.error(self.peek(), message)
+
+    def consume_any(self, token_types, message):
+        """Consume any of the given token types."""
+        for t in token_types:
+            if self.check(t):
+                return self.advance()
         self.error(self.peek(), message)
 
     def check(self, token_type):
