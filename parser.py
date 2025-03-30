@@ -94,6 +94,51 @@ class Assignment(ASTNode):
     def __repr__(self):
         return f"Assign({self.name}, {self.value})"
 
+class VarDeclaration(ASTNode):
+    def __init__(self, var_type, name, initializer):
+        self.var_type = var_type
+        self.name = name
+        self.initializer = initializer
+    def __repr__(self):
+        return f"VarDecl({self.var_type.value}, {self.name}, {self.initializer})"
+
+class FunctionDeclaration(ASTNode):
+    def __init__(self, name, params, return_type, body):
+        self.name = name
+        self.params = params
+        self.return_type = return_type
+        self.body = body
+    def __repr__(self):
+        return f"FuncDecl({self.name}, {self.params}, {self.return_type}, {self.body})"
+
+class ReturnStatement(ASTNode):
+    def __init__(self, value):
+        self.value = value
+    def __repr__(self):
+        return f"Return({self.value})"
+
+class Parameter(ASTNode):
+    def __init__(self, type_token, name):
+        self.type = type_token
+        self.name = name
+    def __repr__(self):
+        return f"Param({self.type.value}, {self.name})"
+
+class Logical(ASTNode):
+    def __init__(self, left, operator, right):
+        self.left = left
+        self.operator = operator
+        self.right = right
+    def __repr__(self):
+        return f"Logical({self.left}, {self.operator.value}, {self.right})"
+
+class Call(ASTNode):
+    def __init__(self, callee, arguments):
+        self.callee = callee  # The function being called
+        self.arguments = arguments  # List of argument expressions
+    def __repr__(self):
+        return f"Call({self.callee}, {self.arguments})"
+
 
 # Parser Implementation
 class Parser:
@@ -108,8 +153,53 @@ class Parser:
         return Program(statements)
 
     def declaration(self):
-        # You can later add support for function/variable declarations.
+        if self.match(TokenType.INT, TokenType.FLOAT, TokenType.STRING, TokenType.CHAR):
+            return self.var_declaration()
+        if self.match(TokenType.FUNCTION):
+            return self.function_declaration()
         return self.statement()
+
+    def var_declaration(self):
+        var_type = self.previous()
+        name = self.consume(TokenType.IDENTIFIER, "Expect variable name.").value
+        
+        initializer = None
+        if self.match(TokenType.ASSIGN):
+            initializer = self.expression()
+        
+        self.consume(TokenType.SEMICOLON, "Expect ';' after variable declaration.")
+        return VarDeclaration(var_type, name, initializer)
+
+    def function_declaration(self):
+        name = self.consume(TokenType.IDENTIFIER, "Expect function name.").value
+        self.consume(TokenType.LEFT_PAREN, "Expect '(' after function name.")
+        
+        parameters = []
+        if not self.check(TokenType.RIGHT_PAREN):
+            # Parse parameters
+            while True:
+                if len(parameters) >= 255:
+                    self.error(self.peek(), "Can't have more than 255 parameters.")
+                
+                param_type = self.consume(TokenType.INT, TokenType.FLOAT, TokenType.STRING, TokenType.CHAR, 
+                                        "Expect parameter type.")
+                param_name = self.consume(TokenType.IDENTIFIER, "Expect parameter name.").value
+                parameters.append(Parameter(param_type, param_name))
+                
+                if not self.match(TokenType.COMMA):
+                    break
+        
+        self.consume(TokenType.RIGHT_PAREN, "Expect ')' after parameters.")
+        
+        # Optional return type (can be void)
+        return_type = None
+        if self.match(TokenType.INT, TokenType.FLOAT, TokenType.STRING, TokenType.CHAR):
+            return_type = self.previous()
+        
+        self.consume(TokenType.LEFT_BRACE, "Expect '{' before function body.")
+        body = BlockStatement(self.block())
+        
+        return FunctionDeclaration(name, parameters, return_type, body)
 
     def statement(self):
         if self.match(TokenType.IF):
@@ -118,11 +208,20 @@ class Parser:
             return self.while_statement()
         if self.match(TokenType.FOR):
             return self.for_statement()
-        if self.match(TokenType.PRINT):
+        if self.match(TokenType.PRINT):  # Add this case for likho
             return self.print_statement()
+        if self.match(TokenType.RETURN):
+            return self.return_statement()
         if self.match(TokenType.LEFT_BRACE):
             return BlockStatement(self.block())
         return self.expression_statement()
+
+    def print_statement(self):
+        self.consume(TokenType.LEFT_PAREN, "Expect '(' after 'likho'.")
+        expr = self.expression()
+        self.consume(TokenType.RIGHT_PAREN, "Expect ')' after expression.")
+        self.consume(TokenType.SEMICOLON, "Expect ';' after print statement.")
+        return PrintStatement(expr)
 
     def if_statement(self):
         self.consume(TokenType.LEFT_PAREN, "Expect '(' after 'agar'.")
@@ -143,19 +242,37 @@ class Parser:
 
     def for_statement(self):
         self.consume(TokenType.LEFT_PAREN, "Expect '(' after 'karo'.")
-        initializer = self.expression_statement()
-        condition = self.expression_statement()
-        increment = self.expression()
+        
+        # Initialization: can be a var declaration or an expression
+        if self.match(TokenType.INT, TokenType.FLOAT, TokenType.STRING, TokenType.CHAR):
+            initializer = self.var_declaration()
+        else:
+            initializer = self.expression_statement()
+        
+        # Condition
+        condition = None
+        if not self.check(TokenType.SEMICOLON):
+            condition = self.expression()
+        self.consume(TokenType.SEMICOLON, "Expect ';' after loop condition.")
+        
+        # Increment
+        increment = None
+        if not self.check(TokenType.RIGHT_PAREN):
+            increment = self.expression()
         self.consume(TokenType.RIGHT_PAREN, "Expect ')' after for clauses.")
+        
+        # Body
         body = self.statement()
+        
         return ForStatement(initializer, condition, increment, body)
 
-    def print_statement(self):
-        self.consume(TokenType.LEFT_PAREN, "Expect '(' after 'likho'.")
-        expr = self.expression()
-        self.consume(TokenType.RIGHT_PAREN, "Expect ')' after print expression.")
-        self.consume(TokenType.SEMICOLON, "Expect ';' after print statement.")
-        return PrintStatement(expr)
+    def return_statement(self):
+        value = None
+        if not self.check(TokenType.SEMICOLON):
+            value = self.expression()
+        
+        self.consume(TokenType.SEMICOLON, "Expect ';' after return value.")
+        return ReturnStatement(value)
 
     def expression_statement(self):
         expr = self.expression()
@@ -173,13 +290,29 @@ class Parser:
         return self.assignment()
 
     def assignment(self):
-        expr = self.equality()
+        expr = self.logical_or()
         if self.match(TokenType.ASSIGN):
             equals = self.previous()
             value = self.assignment()
             if isinstance(expr, Variable):
                 return Assignment(expr.name, value)
             self.error(equals, "Invalid assignment target.")
+        return expr
+
+    def logical_or(self):
+        expr = self.logical_and()
+        while self.match(TokenType.OR):
+            operator = self.previous()
+            right = self.logical_and()
+            expr = Logical(expr, operator, right)
+        return expr
+
+    def logical_and(self):
+        expr = self.equality()
+        while self.match(TokenType.AND):
+            operator = self.previous()
+            right = self.equality()
+            expr = Logical(expr, operator, right)
         return expr
 
     def equality(self):
@@ -192,7 +325,8 @@ class Parser:
 
     def comparison(self):
         expr = self.term()
-        while self.match(TokenType.LESS_THAN, TokenType.GREATER_THAN):
+        while self.match(TokenType.LESS_THAN, TokenType.GREATER_THAN, 
+                         TokenType.LESS_EQUAL, TokenType.GREATER_EQUAL):
             operator = self.previous()
             right = self.term()
             expr = Binary(expr, operator, right)
@@ -215,11 +349,39 @@ class Parser:
         return expr
 
     def unary(self):
-        if self.match(TokenType.MINUS):
+        if self.match(TokenType.MINUS, TokenType.NOT):
             operator = self.previous()
             right = self.unary()
             return Unary(operator, right)
-        return self.primary()
+        return self.call()  # Changed from self.primary()
+
+    def call(self):
+        expr = self.primary()
+        
+        while True:
+            if self.match(TokenType.LEFT_PAREN):
+                expr = self.finish_call(expr)
+            else:
+                break
+        
+        return expr
+
+    def finish_call(self, callee):
+        arguments = []
+        if not self.check(TokenType.RIGHT_PAREN):
+            # Parse arguments
+            while True:
+                if len(arguments) >= 255:
+                    self.error(self.peek(), "Can't have more than 255 arguments.")
+                
+                arguments.append(self.expression())
+                
+                if not self.match(TokenType.COMMA):
+                    break
+        
+        self.consume(TokenType.RIGHT_PAREN, "Expect ')' after arguments.")
+        
+        return Call(callee, arguments)
 
     def primary(self):
         if self.match(TokenType.INTEGER_LITERAL, TokenType.FLOAT_LITERAL,
@@ -231,7 +393,13 @@ class Parser:
             expr = self.expression()
             self.consume(TokenType.RIGHT_PAREN, "Expect ')' after expression.")
             return Grouping(expr)
-        self.error(self.peek(), "Expect expression.")
+        
+        # Friendly error message with token info
+        token = self.peek()
+        if token.type == TokenType.PRINT:
+            self.error(token, "Unexpected 'likho'. Did you mean to use it as a statement?")
+        else:
+            self.error(token, "Expect expression.")
 
     # Utility methods
     def match(self, *token_types):
@@ -272,15 +440,47 @@ class Parser:
 # Example of usage with your lexer
 if __name__ == "__main__":
     # Suppose `source_code` is your input file string.
-    source_code = """
-    agar (x < 10) {
-        likho("x is less than 10");
-    } nahi_to {
-        likho("x is 10 or greater");
+    source = """
+    # This is a test program in the custom language
+    
+    vidhi main() {
+        ank x = 5;
+        sankhya y = 3.14;
+        vakya message = "Hello, world!";
+        akshar ch = 'A';
+        
+        agar (x < 10) {
+            likho("x is less than 10");
+        } nahi_to {
+            likho("x is 10 or greater");
+        }
+        
+        agar (x >= 5 aur y <= 4.0) {
+            likho("Condition met!");
+        }
+        
+        agar (x == 5 ya y != 3.0) {
+            likho("Or condition met!");
+        }
+        
+        agar (nahi (x < 3)) {
+            likho("Not condition met!");
+        }
+        
+        jabtak (x > 0) {
+            likho(x);
+            x = x - 1;
+        }
+        
+        karo (ank i = 0; i < 5; i = i + 1) {
+            y = y + i;
+        }
+        
+        wapas 0;
     }
     """
     # Assuming you have already imported your Lexer and TokenType classes from lexer.py:
-    lexer = Lexer(source_code)
+    lexer = Lexer(source)
     tokens = lexer.tokenize()
     print("tokens by lexer:", tokens)
     parser = Parser(tokens)
