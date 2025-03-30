@@ -37,18 +37,30 @@ class SemanticAnalyzer:
         self.errors = []
     
     def analyze(self, program):
-        """Analyze AST for semantic errors"""
+        """Analyze AST for semantic errors and return type information"""
         try:
             self.visit(program)
-            if not self.errors:
-                return True
-            else:
+            
+            # Create result object with analysis results
+            result = {
+                'success': len(self.errors) == 0,
+                'errors': self.errors.copy(),
+                'symbol_table': self.symbols  # Return the symbol table for use by code generator
+            }
+            
+            # Print errors if any
+            if not result['success']:
                 for error in self.errors:
                     print(f"Semantic Error: {error}")
-                return False
+            
+            return result
         except SemanticError as e:
             print(f"Semantic Error: {e}")
-            return False
+            return {
+                'success': False,
+                'errors': [str(e)],
+                'symbol_table': self.symbols
+            }
     
     def visit(self, node):
         """Visit a node in the AST"""
@@ -278,6 +290,9 @@ class SemanticAnalyzer:
         if var_type is None:
             self.errors.append(f"Variable '{variable.name}' is not defined")
             return "unknown"
+        
+        # Annotate the variable node with its type for code generation
+        variable.type = var_type
         return var_type
     
     def visit_Literal(self, literal):

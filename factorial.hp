@@ -1,0 +1,18 @@
+# Recursive factorial in Hinglish
+
+vidhi factorial(ank n) ank {
+    agar (n <= 1) {
+        wapas 1;
+    }
+    wapas n * factorial(n - 1);
+}
+
+vidhi main() {
+    likho("Factorial Calculator");
+    
+    ank number = 5;
+    likho("Factorial of 5 is:");
+    likho(factorial(number));
+    
+    wapas 0;
+}

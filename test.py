@@ -1,6 +1,10 @@
 from lexer import Lexer, TokenType
 from parser import Parser
 from sem_analyser import SemanticAnalyzer
+from generator import CodeGenerator
+import subprocess
+import os
+import tempfile
 
 def run_test(name, source_code, expected_pattern=None, expect_semantic_errors=None):
     """Run a parser test and verify the output contains expected patterns"""
@@ -66,6 +70,89 @@ def run_test(name, source_code, expected_pattern=None, expect_semantic_errors=No
         
         return syntax_pass and (semantic_pass if expect_semantic_errors is not None else True)
         
+    except Exception as e:
+        print(f"\n❌ ERROR: {e}")
+        return False
+
+def run_generator_test(name, source_code, expected_output=None):
+    """Run a full transpilation test focusing only on program output validation"""
+    print(f"\n{'=' * 50}")
+    print(f"CODE GENERATION TEST: {name}")
+    print(f"{'=' * 50}")
+    
+    print("SOURCE CODE:")
+    print(f"```\n{source_code}\n```")
+    
+    try:
+        # Run the transpilation pipeline
+        lexer = Lexer(source_code)
+        tokens = lexer.tokenize()
+        parser = Parser(tokens)
+        ast = parser.parse()
+        analyzer = SemanticAnalyzer()
+        
+        analysis_result = analyzer.analyze(ast)
+
+        if not analysis_result['success']:
+            print("Semantic analysis failed!")
+            return
+            
+        generator = CodeGenerator(analysis_result['symbol_table'])
+        c_code = generator.generate(ast)
+        
+        # Only attempt to compile and run if there's expected output to verify
+        if expected_output is not None:
+            # Save C code to a temporary file
+            with tempfile.NamedTemporaryFile(suffix='.c', delete=False) as temp_c_file:
+                temp_c_path = temp_c_file.name
+                temp_c_file.write(c_code.encode())
+            
+            # Compile the C code
+            temp_exe_path = temp_c_path + '.exe'
+            compile_result = subprocess.run(
+                ['gcc', temp_c_path, '-o', temp_exe_path], 
+                capture_output=True, 
+                text=True
+            )
+            
+            if compile_result.returncode != 0:
+                print("\n❌ COMPILATION FAILED:")
+                print(compile_result.stderr)
+                print("\nGENERATED C CODE (for debugging):")
+                print(f"```\n{c_code}\n```")
+                
+                # Clean up
+                os.unlink(temp_c_path)
+                return False
+            
+            # Run the compiled program
+            run_result = subprocess.run(
+                [temp_exe_path], 
+                capture_output=True, 
+                text=True
+            )
+            
+            print("\nPROGRAM OUTPUT:")
+            print(f"```\n{run_result.stdout}\n```")
+            
+            # Clean up
+            os.unlink(temp_c_path)
+            os.unlink(temp_exe_path)
+            
+            # Check output
+            if expected_output in run_result.stdout:
+                print(f"\n✅ OUTPUT: Expected output found")
+                return True
+            else:
+                print(f"\n❌ OUTPUT: Expected output '{expected_output}' not found")
+                print("\nGENERATED C CODE (for debugging):")
+                print(f"```\n{c_code}\n```")
+                return False
+        
+        # If no expected output was provided, just consider it a pass
+        print("\n⚠️ NO EXPECTED OUTPUT: Skipping output verification")
+        return True
+    
     except Exception as e:
         print(f"\n❌ ERROR: {e}")
         return False
@@ -273,6 +360,209 @@ tests = [
     }
 ]
 
+# Test cases for code generation
+code_gen_tests = [
+    {
+        "name": "Hello World",
+        "source": """
+        vidhi main() {
+            likho("Hello, World!");
+            wapas 0;
+        }
+        """,
+        "expected_output": "Hello, World!"
+    },
+    {
+        "name": "Integer Arithmetic",
+        "source": """
+        vidhi main() {
+            ank a = 10;
+            ank b = 5;
+            ank sum = a + b;
+            ank diff = a - b;
+            ank prod = a * b;
+            ank quot = a / b;
+            
+            likho(sum);   # 15
+            likho(diff);  # 5
+            likho(prod);  # 50
+            likho(quot);  # 2
+            
+            wapas 0;
+        }
+        """,
+        "expected_output": "15"  # Just check for one output
+    },
+    {
+        "name": "If-Else Statement",
+        "source": """
+        vidhi main() {
+            ank x = 10;
+            
+            agar (x > 5) {
+                likho("x is greater than 5");
+            } nahi_to {
+                likho("x is not greater than 5");
+            }
+            
+            wapas 0;
+        }
+        """,
+        "expected_output": "x is greater than 5"
+    },
+    {
+        "name": "While Loop",
+        "source": """
+        vidhi main() {
+            ank i = 1;
+            jabtak (i <= 3) {
+                likho(i);
+                i = i + 1;
+            }
+            wapas 0;
+        }
+        """,
+        "expected_output": "1"  # Just check for the start of output
+    },
+    {
+        "name": "For Loop",
+        "source": """
+        vidhi main() {
+            karo (ank i = 1; i <= 3; i = i + 1) {
+                likho(i);
+            }
+            wapas 0;
+        }
+        """,
+        "expected_output": "1"  # Just check for the start of output
+    },
+    {
+        "name": "Function Call",
+        "source": """
+        vidhi square(ank x) ank {
+            wapas x * x;
+        }
+        
+        vidhi main() {
+            ank num = 5;
+            ank result = square(num);
+            likho(result);  # Should print 25
+            wapas 0;
+        }
+        """,
+        "expected_output": "25"
+    },
+    {
+        "name": "Nested Loops and Conditionals",
+        "source": """
+        vidhi main() {
+            ank i = 1;
+            jabtak (i <= 3) {
+                ank j = 1;
+                jabtak (j <= i) {
+                    agar (i == j) {
+                        likho("Equal");
+                    } nahi_to {
+                        likho("Not equal");
+                    }
+                    j = j + 1;
+                }
+                i = i + 1;
+            }
+            wapas 0;
+        }
+        """,
+        "expected_output": "Equal"  # Just check for one output
+    },
+    {
+        "name": "String and Character Handling",
+        "source": """
+        vidhi main() {
+            vakya message = "Hello";
+            akshar first = 'H';
+            
+            likho(message);
+            likho(first);
+            
+            wapas 0;
+        }
+        """,
+        "expected_output": "Hello"
+    },
+    {
+        "name": "Logical Operators",
+        "source": """
+        vidhi main() {
+            ank a = 5;
+            ank b = 10;
+            
+            agar (a < b aur a > 0) {
+                likho("Condition 1 true");
+            }
+            
+            agar (a > b ya a > 0) {
+                likho("Condition 2 true");
+            }
+            
+            agar (nahi (a > b)) {
+                likho("Condition 3 true");
+            }
+            
+            wapas 0;
+        }
+        """,
+        "expected_output": "Condition 1 true"
+    },
+    {
+        "name": "Recursive Function",
+        "source": """
+        vidhi factorial(ank n) ank {
+            agar (n <= 1) {
+                wapas 1;
+            }
+            wapas n * factorial(n - 1);
+        }
+        
+        vidhi main() {
+            likho(factorial(5));  # Should print 120
+            wapas 0;
+        }
+        """,
+        "expected_output": "120"
+    },
+    {
+        "name": "Float Arithmetic",
+        "source": """
+        vidhi main() {
+            sankhya a = 3.5;
+            sankhya b = 1.5;
+            sankhya sum = a + b;
+            
+            likho(sum);  # Should be around 5.0
+            
+            wapas 0;
+        }
+        """,
+        "expected_output": "5"  # Simplified check, might have decimals
+    },
+    {
+        "name": "Complex Expression",
+        "source": """
+        vidhi main() {
+            ank a = 5;
+            ank b = 3;
+            ank c = 2;
+            
+            ank result = a * b + (a - b) * c;
+            likho(result);  # Should be 19
+            
+            wapas 0;
+        }
+        """,
+        "expected_output": "19"
+    }
+]
+
 def run_all_tests():
     """Run all test cases and report results"""
     passed = 0
@@ -292,9 +582,34 @@ def run_all_tests():
                 syntax_passed += 1
     
     print(f"\n{'=' * 50}")
-    print(f"SUMMARY: {passed}/{total} tests passed")
+    print(f"BASIC TESTS SUMMARY: {passed}/{total} tests passed")
     print(f"  - Syntax:    {syntax_passed}/{total-semantic_total} tests passed")
     print(f"  - Semantics: {semantic_passed}/{semantic_total} tests passed")
+    print(f"{'=' * 50}")
+    
+    # Run code generation tests
+    print(f"\n{'=' * 50}")
+    print(f"RUNNING CODE GENERATION TESTS")
+    print(f"{'=' * 50}")
+    
+    gen_passed = 0
+    gen_total = len(code_gen_tests)
+    
+    for test in code_gen_tests:
+        if run_generator_test(
+            test["name"], 
+            test["source"], 
+            test.get("expected_output")
+        ):
+            gen_passed += 1
+    
+    print(f"\n{'=' * 50}")
+    print(f"CODE GENERATION SUMMARY: {gen_passed}/{gen_total} tests passed")
+    print(f"{'=' * 50}")
+    
+    # Overall summary
+    print(f"\n{'=' * 50}")
+    print(f"OVERALL SUMMARY: {passed + gen_passed}/{total + gen_total} tests passed")
     print(f"{'=' * 50}")
 
 if __name__ == "__main__":
