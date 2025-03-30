@@ -9,16 +9,19 @@ class TokenType(Enum):
     FOR = auto()         # karo
     FUNCTION = auto()    # function
     RETURN = auto()      # wapas
+    PRINT = auto()       # likho
     
     # Data types
-    INT = auto()         # int
-    FLOAT = auto()       # float
-    STRING = auto()      # string
+    INT = auto()         # ank
+    FLOAT = auto()       # sankhya
+    STRING = auto()      # vakya
+    CHAR = auto()        # akshar
     
     # Literals
     INTEGER_LITERAL = auto()
     FLOAT_LITERAL = auto()
     STRING_LITERAL = auto()
+    CHAR_LITERAL = auto()
     
     # Identifiers
     IDENTIFIER = auto()
@@ -71,11 +74,13 @@ class Lexer:
             'nahi_to': TokenType.ELSE,
             'jabtak': TokenType.WHILE,
             'karo': TokenType.FOR,
-            'function': TokenType.FUNCTION,
+            'vidhi': TokenType.FUNCTION,
             'wapas': TokenType.RETURN,
-            'int': TokenType.INT,
-            'float': TokenType.FLOAT,
-            'string': TokenType.STRING
+            'ank': TokenType.INT,
+            'sankhya': TokenType.FLOAT,
+            'vakya': TokenType.STRING,
+            'akshar': TokenType.CHAR,
+            'likho': TokenType.PRINT
         }
 
     def peek(self):
@@ -128,6 +133,10 @@ class Lexer:
             # Handle string literals
             elif char == '"':
                 self.tokenize_string()
+            
+            # Handle character literals
+            elif char == "'":
+                self.tokenize_char()
             
             # Handle operators and delimiters
             elif char in '+-*/(){}[];,=<>!':
@@ -212,6 +221,40 @@ class Lexer:
         else:
             # Unterminated string error handling could go here
             self.tokens.append(Token(TokenType.UNKNOWN, string, self.line, start_column))
+    
+    def tokenize_char(self):
+        """Tokenize a character literal"""
+        start_column = self.column
+        self.advance()  # Skip the opening quote
+        
+        char_value = ""
+        
+        # Handle escape sequences
+        if self.peek() == '\\' and self.position + 1 < len(self.source):
+            self.advance()  # Skip the backslash
+            escaped_char = self.advance()
+            
+            if escaped_char == 'n':
+                char_value = '\n'
+            elif escaped_char == 't':
+                char_value = '\t'
+            elif escaped_char == '\\':
+                char_value = '\\'
+            elif escaped_char == "'":
+                char_value = "'"
+            else:
+                char_value = escaped_char
+        else:
+            if self.peek():
+                char_value = self.advance()
+        
+        # Check for closing quote
+        if self.peek() == "'":
+            self.advance()  # Skip the closing quote
+            self.tokens.append(Token(TokenType.CHAR_LITERAL, char_value, self.line, start_column))
+        else:
+            # Unterminated character literal error handling
+            self.tokens.append(Token(TokenType.UNKNOWN, char_value, self.line, start_column))
     
     def tokenize_operator_or_delimiter(self):
         """Tokenize operators and delimiters"""
