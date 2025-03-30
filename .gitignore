@@ -4,3 +4,6 @@ __pycache__/
 *$py.class
 rough
 example
+compiler.build/
+compiler.dist/
+compiler.onefile-build/

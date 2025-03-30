@@ -14,7 +14,7 @@ class HinglishCompiler:
         if self.verbose:
             print(message)
     
-    def compile(self, input_file, output_file=None, keep_c=False):
+    def compile(self, input_file, output_file=None, keep_c=False, run_after=False):
         """
         Compile a Hinglish program (.hp) to an executable.
         
@@ -22,6 +22,7 @@ class HinglishCompiler:
             input_file: Path to the .hp source file
             output_file: Path to the output executable (default: input basename)
             keep_c: Whether to keep the intermediate C file (default: False)
+            run_after: Whether to run the executable after compilation (default: False)
         """
         # Validate input file
         if not input_file.endswith('.hp'):
@@ -83,7 +84,44 @@ class HinglishCompiler:
                 print(f"Warning: Could not remove intermediate C file: {str(e)}")
         
         print(f"Successfully compiled '{input_file}' to '{executable}'")
+        
+        # Step 5: Run the executable if requested
+        if run_after:
+            return self.run_executable(executable)
+            
         return True
+    
+    def run_executable(self, executable):
+        """Run the compiled executable."""
+        print(f"Running '{executable}'...")
+        try:
+            # Make sure the path is absolute or with ./ prefix for Linux
+            if not os.path.isabs(executable) and not executable.startswith('./'):
+                executable = f"./{executable}"
+                
+            # Run the executable and capture output
+            result = subprocess.run(
+                executable,
+                check=True,
+                text=True
+            )
+            
+            if result.returncode != 0:
+                print(f"Program execution failed with exit code {result.returncode}")
+                return False
+                
+            print("Program execution completed successfully.")
+            return True
+        except subprocess.CalledProcessError as e:
+            print(f"Program execution failed: {str(e)}")
+            return False
+        except FileNotFoundError:
+            print(f"Error: Could not find executable '{executable}'")
+            return False
+        except PermissionError:
+            print(f"Error: Permission denied when trying to run '{executable}'")
+            print("Try running 'chmod +x {executable}' first.")
+            return False
     
     def transpile(self, source_code):
         """Transpile Hinglish code to C."""
@@ -159,6 +197,7 @@ Examples:
   hpc hello.hp -o greet      # Compile hello.hp to executable 'greet'
   hpc hello.hp --keep-c      # Keep the intermediate C file
   hpc hello.hp -v            # Verbose output showing compilation steps
+  hpc hello.hp --run         # Run the program after compilation
 """
     )
     
@@ -166,11 +205,12 @@ Examples:
     parser.add_argument('-o', '--output', help='Output executable name')
     parser.add_argument('--keep-c', action='store_true', help='Keep intermediate C file')
     parser.add_argument('-v', '--verbose', action='store_true', help='Enable verbose output')
+    parser.add_argument('--run', action='store_true', help='Run the executable after compilation')
     
     args = parser.parse_args()
     
     compiler = HinglishCompiler(verbose=args.verbose)
-    success = compiler.compile(args.input_file, args.output, args.keep_c)
+    success = compiler.compile(args.input_file, args.output, args.keep_c, args.run)
     
     return 0 if success else 1
 

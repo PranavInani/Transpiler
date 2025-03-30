@@ -1,56 +1,44 @@
-# Binary tree representation and traversal with recursion
+# Generates Fibonacci series using recursion and iteration
 
-vidhi print_spaces(ank count) {
-    karo (ank i = 0; i < count; i = i + 1) {
-        likho(" ");
+vidhi fib_recursive(ank n) ank {
+    agar (n <= 1) {
+        wapas n;
     }
+    wapas fib_recursive(n - 1) + fib_recursive(n - 2);
 }
 
-vidhi print_tree_level(ank level, ank height, ank value) {
-    # Print a node at a specific level in the tree visualization
-    ank spaces = (1 << (height - level)) - 1;
-    
-    print_spaces(spaces);
-    likho(value);
-    print_spaces(spaces);
-}
-
-vidhi print_binary_tree(ank height) {
-    # A simple binary tree visualization 
-    # (just for demonstration of nested function calls)
-    karo (ank level = 0; level < height; level = level + 1) {
-        ank nodes_at_level = 1 << level;
-        ank start_value = (1 << level) - 1;
-        
-        karo (ank i = 0; i < nodes_at_level; i = i + 1) {
-            print_tree_level(level, height, start_value + i);
-        }
-        likho("");  # New line
-    }
-}
-
-vidhi tree_sum(ank node, ank size) ank {
-    # Calculate sum of a complete binary tree (represented as array)
-    agar (node >= size) {
-        wapas 0;
+vidhi fib_iterative(ank n) ank {
+    agar (n <= 1) {
+        wapas n;
     }
     
-    # Recursive calls to left and right children
-    ank left_sum = tree_sum(2 * node + 1, size);
-    ank right_sum = tree_sum(2 * node + 2, size);
+    ank a = 0;
+    ank b = 1;
+    ank result = 0;
     
-    # Return this node's value plus children's sums
-    wapas node + left_sum + right_sum;
+    karo (ank i = 2; i <= n; i = i + 1) {
+        result = a + b;
+        a = b;
+        b = result;
+    }
+    
+    wapas result;
 }
 
 vidhi main() {
-    likho("Binary Tree Operations");
+    likho("Fibonacci Series Generator");
     
-    likho("Visualizing a simple binary tree (height 4):");
-    print_binary_tree(4);
+    ank limit = 10;
     
-    likho("Sum of values in a complete binary tree (size 15):");
-    likho(tree_sum(0, 15));
+    likho("First 10 Fibonacci numbers (iterative):");
+    karo (ank i = 0; i < limit; i = i + 1) {
+        likho(fib_iterative(i));
+    }
+    
+    likho("First 10 Fibonacci numbers (recursive):");
+    karo (ank i = 0; i < limit; i = i + 1) {
+        likho(fib_recursive(i));
+    }
     
     wapas 0;
 }
