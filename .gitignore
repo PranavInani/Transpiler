@@ -2,3 +2,8 @@
 __pycache__/
 *.py[cod]
 *$py.class
+rough
+example
+compiler.build/
+compiler.dist/
+compiler.onefile-build/
