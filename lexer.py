@@ -7,9 +7,14 @@ class TokenType(Enum):
     ELSE = auto()        # nahi_to
     WHILE = auto()       # jabtak
     FOR = auto()         # karo
-    FUNCTION = auto()    # function
+    FUNCTION = auto()    # vidhi
     RETURN = auto()      # wapas
     PRINT = auto()       # likho
+    
+    # Logical operators
+    AND = auto()         # aur
+    OR = auto()          # ya
+    NOT = auto()         # nahi
     
     # Data types
     INT = auto()         # ank
@@ -37,6 +42,8 @@ class TokenType(Enum):
     NOT_EQUALS = auto()  # !=
     LESS_THAN = auto()   # <
     GREATER_THAN = auto() # >
+    LESS_EQUAL = auto()  # <=
+    GREATER_EQUAL = auto() # >=
     
     # Delimiters
     LEFT_PAREN = auto()  # (
@@ -80,7 +87,12 @@ class Lexer:
             'sankhya': TokenType.FLOAT,
             'vakya': TokenType.STRING,
             'akshar': TokenType.CHAR,
-            'likho': TokenType.PRINT
+            'likho': TokenType.PRINT,
+            
+            # Logical operators
+            'aur': TokenType.AND,
+            'ya': TokenType.OR,
+            'nahi': TokenType.NOT
         }
 
     def peek(self):
@@ -110,6 +122,16 @@ class Lexer:
         while self.peek() and self.peek().isspace():
             self.advance()
     
+    def skip_comment(self):
+        """Skip a comment starting with #"""
+        self.advance()  # Skip the # character
+        
+        # Skip until end of line
+        while self.peek() and self.peek() != '\n':
+            self.advance()
+        
+        # We don't consume the newline here, as it will be handled by skip_whitespace
+    
     def tokenize(self):
         """Convert the source code into tokens"""
         while self.position < len(self.source):
@@ -122,8 +144,13 @@ class Lexer:
             
             char = self.peek()
             
+            # Handle comments
+            if char == '#':
+                self.skip_comment()
+                continue
+            
             # Handle identifiers and keywords
-            if char.isalpha() or char == '_':
+            elif char.isalpha() or char == '_':
                 self.tokenize_identifier()
             
             # Handle numbers
@@ -141,10 +168,6 @@ class Lexer:
             # Handle operators and delimiters
             elif char in '+-*/(){}[];,=<>!':
                 self.tokenize_operator_or_delimiter()
-                
-            # Handle comments
-            elif char == '/' and self.position + 1 < len(self.source) and self.source[self.position + 1] == '/':
-                self.skip_line_comment()
                 
             # Unrecognized character
             else:
@@ -219,7 +242,7 @@ class Lexer:
             self.advance()  # Skip the closing quote
             self.tokens.append(Token(TokenType.STRING_LITERAL, string, self.line, start_column))
         else:
-            # Unterminated string error handling could go here
+            # Unterminated string error handling
             self.tokens.append(Token(TokenType.UNKNOWN, string, self.line, start_column))
     
     def tokenize_char(self):
@@ -251,9 +274,16 @@ class Lexer:
         # Check for closing quote
         if self.peek() == "'":
             self.advance()  # Skip the closing quote
-            self.tokens.append(Token(TokenType.CHAR_LITERAL, char_value, self.line, start_column))
+            
+            # Validate that it's a single character
+            if len(char_value) == 1:
+                self.tokens.append(Token(TokenType.CHAR_LITERAL, char_value, self.line, start_column))
+            else:
+                # Invalid character literal (empty or too long)
+                error_msg = "Invalid character literal"
+                self.tokens.append(Token(TokenType.UNKNOWN, error_msg, self.line, start_column))
         else:
-            # Unterminated character literal error handling
+            # Unterminated character literal
             self.tokens.append(Token(TokenType.UNKNOWN, char_value, self.line, start_column))
     
     def tokenize_operator_or_delimiter(self):
@@ -268,6 +298,12 @@ class Lexer:
         elif char == '!' and self.peek() == '=':
             self.advance()
             self.tokens.append(Token(TokenType.NOT_EQUALS, "!=", self.line, column))
+        elif char == '<' and self.peek() == '=':
+            self.advance()
+            self.tokens.append(Token(TokenType.LESS_EQUAL, "<=", self.line, column))
+        elif char == '>' and self.peek() == '=':
+            self.advance()
+            self.tokens.append(Token(TokenType.GREATER_EQUAL, ">=", self.line, column))
         # Single-character operators and delimiters
         else:
             token_map = {
@@ -291,15 +327,6 @@ class Lexer:
                 self.tokens.append(Token(token_map[char], char, self.line, column))
             else:
                 self.tokens.append(Token(TokenType.UNKNOWN, char, self.line, column))
-    
-    def skip_line_comment(self):
-        """Skip a line comment"""
-        self.advance()  # Skip the first /
-        self.advance()  # Skip the second /
-        
-        # Skip until end of line
-        while self.peek() and self.peek() != '\n':
-            self.advance()
 
 # Example usage
 def tokenize_file(file_path):
@@ -314,10 +341,42 @@ def tokenize_file(file_path):
 if __name__ == "__main__":
     # You can add a simple test here if needed
     test_code = """
-    agar (x < 10) {
-        chaap("x is less than 10");
-    } nahi_to {
-        chaap("x is 10 or greater");
+    # This is a test program in the custom language
+    
+    vidhi main() {
+        ank x = 5;
+        sankhya y = 3.14;
+        vakya message = "Hello, world!";
+        akshar ch = 'A';
+        
+        agar (x < 10) {
+            likho("x is less than 10");
+        } nahi_to {
+            likho("x is 10 or greater");
+        }
+        
+        agar (x >= 5 aur y <= 4.0) {
+            likho("Condition met!");
+        }
+        
+        agar (x == 5 ya y != 3.0) {
+            likho("Or condition met!");
+        }
+        
+        agar (nahi (x < 3)) {
+            likho("Not condition met!");
+        }
+        
+        jabtak (x > 0) {
+            likho(x);
+            x = x - 1;
+        }
+        
+        karo (ank i = 0; i < 5; i = i + 1) {
+            y = y + i;
+        }
+        
+        wapas 0;
     }
     """
     
