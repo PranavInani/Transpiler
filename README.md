@@ -65,26 +65,8 @@ gcc --version
 ```
 
 ## Usage
-### 1. Using run.py (Transpile and optionally compile)
-```bash
-python run.py input.hp [options]
-```
-Options:
 
-* --`output FILE`: Specify output C file path (default: input_name.c)
-* --`compile`: Compile the generated C code
-* --`exe NAME`: Output executable name when compiling
-* --`sample SAMPLE`: Run a built-in sample program instead of reading from a file
-* --`list-samples`: List available sample programs
-
-Examples:
-```bash
-python run.py fibonacci.hp --compile                # Transpile and compile
-python run.py --sample hello --compile --exe hello  # Use a built-in sample
-python run.py --list-samples                        # List available samples
-```
-
-### 2. Using compiler.py (Full compilation pipeline)
+### 1. Using compiler.py (Full compilation pipeline)
 ```bash
 python compiler.py input.hp [options]
 ```
@@ -103,7 +85,7 @@ python compiler.py hello.hp --keep-c       # Keep C file
 python compiler.py hello.hp --run          # Run after compiling                     # List available samples
 ```
 
-### 3. Using Standalone compiler
+### 2. Using Standalone compiler
 * replace `python compiler.py` by `./compiler.bin` and rest is same as second method of compilation.
 
 ## Creating a standalone compiler binary
